@@ -1,0 +1,11 @@
+menu "Controller"
+
+    config AXES_COUNT
+        int "Number of axes supported by the controller"
+        default 4
+
+    config SAMPLES_PER_AXIS
+        int "Number of measurements supported by the controller"
+        default 10
+
+endmenu
