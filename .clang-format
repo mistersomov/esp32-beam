@@ -1,0 +1,14 @@
+AlignAfterOpenBracket: Align
+AllowAllArgumentsOnNextLine: false
+BasedOnStyle: Microsoft
+BinPackArguments: false
+BinPackParameters: false
+BreakBeforeBraces: Stroustrup
+ColumnLimit: 120
+IncludeBlocks: Preserve
+IndentAccessModifiers: false
+Language: C
+PackConstructorInitializers: NextLine
+SortIncludes: CaseInsensitive
+TabWidth: '4'
+UseTab: Never
