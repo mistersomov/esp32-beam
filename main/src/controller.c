@@ -19,19 +19,21 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "soc/soc_caps.h"
+
+#define SAMPLES_PER_AXIS CONFIG_SAMPLES_PER_AXIS
+#define HANDLERS_COUNT SOC_ADC_PERIPH_NUM
 
 static const char *TAG = "CONTROLLER";
 #define CONTROLLER_RETURN_ON_FALSE(func, str, ret_val) ESP_RETURN_ON_FALSE(func, ret_val, TAG, "%s", str)
 #define CONTROLLER_CHECK(func) ESP_ERROR_CHECK(func)
 
-#define SAMPLES_PER_AXIS CONFIG_SAMPLES_PER_AXIS
-
 static int adc_raw[AXES_COUNT][SAMPLES_PER_AXIS];
 static int voltage[AXES_COUNT][SAMPLES_PER_AXIS];
-static adc_oneshot_unit_handle_t adc_one_shot_handlers[2] = {NULL, NULL};
+static adc_oneshot_unit_handle_t adc_one_shot_handlers[HANDLERS_COUNT] = {NULL};
 
 static esp_err_t configure_one_shot_driver(const controller_axis_unit_t *axis);
-static bool adc_calibration_init(adc_block_t *adc_block);
+static esp_err_t adc_calibration_init(adc_block_t *adc_block);
 #if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
 static esp_err_t configure_curve_fitting_calibration(adc_block_t *adc_block, adc_cali_handle_t *handler);
 #endif
@@ -39,12 +41,12 @@ static esp_err_t configure_curve_fitting_calibration(adc_block_t *adc_block, adc
 static esp_err_t configure_line_fitting_calibration(adc_block_t *adc_block, adc_cali_handle_t *handler);
 #endif
 
-esp_err_t controller_config(const controller_config_t *cfg)
+esp_err_t controller_init(const controller_config_t *cfg)
 {
     CONTROLLER_RETURN_ON_FALSE(cfg, "Controller config pointer error", ESP_ERR_INVALID_ARG);
 
     for (int i = 0; i != AXES_COUNT; ++i) {
-        controller_axis_unit_t *axis = &cfg->axes[i];
+        const controller_axis_unit_t *axis = &cfg->axes[i];
 
         if (axis->adc_block.mode == CONTINUOUS) {
         }
@@ -57,18 +59,41 @@ esp_err_t controller_config(const controller_config_t *cfg)
     return ESP_OK;
 }
 
+esp_err_t controller_deinit(const controller_config_t *cfg)
+{
+    CONTROLLER_RETURN_ON_FALSE(cfg, "Controller config pointer error", ESP_ERR_INVALID_ARG);
+
+    for (int i = 0; i != AXES_COUNT; ++i) {
+        controller_axis_unit_t *axis = &cfg->axes[i];
+        adc_cali_handle_t cali_handler = axis->adc_block.cali_handler;
+        if (cali_handler) {
+#if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
+            CONTROLLER_CHECK(adc_cali_delete_scheme_curve_fitting(handler));
+#elif ADC_CALI_SCHEME_LINE_FITTING_SUPPORTED
+            CONTROLLER_CHECK(adc_cali_delete_scheme_line_fitting(cali_handler));
+#endif
+            cali_handler = NULL;
+        }
+    }
+    for (int i = 0; i != HANDLERS_COUNT; ++i) {
+        adc_oneshot_unit_handle_t handler = adc_one_shot_handlers[i];
+        if (handler != NULL) {
+            CONTROLLER_CHECK(adc_oneshot_del_unit(adc_one_shot_handlers[i]));
+            handler = NULL;
+        }
+    }
+
+    return ESP_OK;
+}
+
 esp_err_t controller_read_values(const controller_config_t *cfg)
 {
     CONTROLLER_RETURN_ON_FALSE(cfg, "Controller config pointer error", ESP_ERR_INVALID_ARG);
 
     for (int i = 0; i != AXES_COUNT; ++i) {
         const controller_axis_unit_t *axis = &cfg->axes[i];
-        CONTROLLER_RETURN_ON_FALSE(axis, "Axis pointer error", ESP_ERR_INVALID_ARG);
-
         int unit_idx = (axis->adc_block.unit_id == ADC_UNIT_1) ? 0 : 1;
         adc_cali_handle_t cali_handler = axis->adc_block.cali_handler;
-        CONTROLLER_RETURN_ON_FALSE(cali_handler, "Calibration handler error", ESP_ERR_INVALID_ARG);
-
         CONTROLLER_CHECK(adc_oneshot_read(adc_one_shot_handlers[unit_idx], axis->adc_block.channel, adc_raw[i]));
         if (cali_handler) {
             CONTROLLER_CHECK(adc_cali_raw_to_voltage(cali_handler, adc_raw[i][0], voltage[i]));
@@ -99,13 +124,13 @@ esp_err_t configure_one_shot_driver(const controller_axis_unit_t *axis)
     return adc_oneshot_config_channel(adc_one_shot_handlers[unit_idx], axis->adc_block.channel, &channel_config);
 }
 
-bool adc_calibration_init(adc_block_t *adc_block)
+esp_err_t adc_calibration_init(adc_block_t *adc_block)
 {
     CONTROLLER_RETURN_ON_FALSE(adc_block, "ADC block error", ESP_ERR_INVALID_ARG);
 
     adc_cali_handle_t handle = NULL;
     bool calibrated = false;
-    esp_err_t ret = ESP_FAIL;
+    esp_err_t ret = ESP_ERR_NOT_SUPPORTED;
 
 #if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
     if (!calibrated) {
@@ -127,7 +152,7 @@ bool adc_calibration_init(adc_block_t *adc_block)
 
     adc_block->cali_handler = handle;
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Calibration Success");
+        ESP_LOGI(TAG, "ADC%" PRIu32 " - Calibration Success", (uint32_t)adc_block->channel);
     }
     else if (ret == ESP_ERR_NOT_SUPPORTED || !calibrated) {
         ESP_LOGW(TAG, "eFuse not burnt, skip software calibration");
@@ -136,7 +161,7 @@ bool adc_calibration_init(adc_block_t *adc_block)
         ESP_LOGE(TAG, "Invalid arg or no memory");
     }
 
-    return calibrated;
+    return ret;
 }
 
 #if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED

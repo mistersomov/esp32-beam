@@ -19,7 +19,6 @@
 
 #include "esp_adc/adc_cali.h"
 #include "esp_err.h"
-#include "hal/adc_types.h"
 #include "sdkconfig.h"
 
 #ifdef __cplusplus
@@ -91,7 +90,19 @@ typedef struct controller_config {
  *      - ESP_ERR_NO_MEM: Memory allocation failed
  *      - ESP_FAIL: Configuration failed
  */
-esp_err_t controller_config(const controller_config_t *cfg);
+esp_err_t controller_init(const controller_config_t *cfg);
+
+/**
+ * @brief Delete the controller
+ *
+ * @param[in] cfg Pointer to controller configuration structure. Must not be NULL.
+ *
+ * @return
+ *        - ESP_OK:              On success
+ *        - ESP_ERR_INVALID_ARG: Invalid arguments
+ *        - ESP_ERR_NOT_FOUND:   The ADC peripheral to be disclaimed isn't in use
+ */
+esp_err_t controller_deinit(const controller_config_t *cfg);
 
 /**
  * @brief Read ADC values from all configured controller axes
@@ -101,7 +112,7 @@ esp_err_t controller_config(const controller_config_t *cfg);
  *
  * @param[in] cfg Pointer to controller configuration structure. Must not be NULL.
  *                The configuration must have been previously initialized with
- *                controller_config().
+ *                controller_init().
  * @return
  *      - ESP_OK: Configuration successful
  *      - ESP_ERR_INVALID_ARG: Invalid configuration parameter
