@@ -23,11 +23,16 @@
 extern "C" {
 #endif
 
-#define STX_BYTE 0x24        ///< Start-of-Frame delimiter ('$')
-#define MAX_PAYLOAD_SIZE 250 ///< Maximum size of the data payload in bytes
+#define MAX_PAYLOAD_SIZE 255 ///< Maximum size of the data payload in bytes
+
+typedef struct beam_frame_header {
+    uint8_t msg_id; ///< Unique identifier for the message type
+    uint8_t seq;    ///< Packet sequence number for loss tracking
+    uint8_t len;    ///< Length of the payload array (0 to MAX_PAYLOAD_SIZE)
+} beam_frame_header_t;
 
 /**
- * @brief Beam Protocol Frame Structure
+ * @brief BEAM Protocol Frame Structure
  *
  * Represents the full packet as it is sent over the transport layer.
  *
@@ -35,10 +40,7 @@ extern "C" {
  * or interruptions)
  */
 typedef struct beam_frame {
-    uint8_t stx;                       ///< Start-of-Frame delimiter
-    uint8_t msg_id;                    ///< Unique identifier for the message type
-    uint8_t seq;                       ///< Packet sequence number for loss tracking
-    uint8_t len;                       ///< Length of the payload array (0 to MAX_PAYLOAD_SIZE)
+    beam_frame_header_t header;
     uint8_t payload[MAX_PAYLOAD_SIZE]; ///< Raw data bytes
     uint16_t crc;                      ///< CRC-16-CCITT checksum for error detection
 } beam_frame_t;
