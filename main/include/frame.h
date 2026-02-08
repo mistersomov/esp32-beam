@@ -27,7 +27,7 @@ extern "C" {
 /**
  * @brief BEAM frame header (3 bytes on wire: msg_id, seq, len).
  */
-typedef struct beam_frame_header {
+typedef struct __attribute__((packed)) beam_frame_header {
     uint8_t msg_id; ///< Unique identifier for the message type
     uint8_t seq;    ///< Packet sequence number for loss tracking
     uint8_t len;    ///< Length of the payload array (0 to MAX_PAYLOAD_SIZE)
@@ -37,11 +37,9 @@ typedef struct beam_frame_header {
  * @brief BEAM Protocol Frame Structure
  *
  * Represents the full packet as it is sent over the transport layer.
- *
- * Its purpose is to extract a coherent, valid message from a continuous stream of bytes (which may contain interference
- * or interruptions)
+ * Packed so that layout and size match the wire format (no padding).
  */
-typedef struct beam_frame {
+typedef struct __attribute__((packed)) beam_frame {
     beam_frame_header_t header; ///< Frame header (msg_id, seq, len)
     beam_payload_t payload;     ///< Payload union; interpret by header.msg_id
     uint16_t crc;               ///< CRC-16-CCITT checksum for error detection
