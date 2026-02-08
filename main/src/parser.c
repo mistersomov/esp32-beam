@@ -16,10 +16,12 @@
 
 #include "parser.h"
 #include "esp_check.h"
+#include "payload_type.h"
 #include <string.h>
 
 #define FRAME_HEADER_SIZE 3u /**< Header bytes: msg_id + seq + len */
 #define FRAME_CRC_SIZE 2u
+#define FRAME_SIZE(len) (size_t)FRAME_HEADER_SIZE + (size_t)(len) + (size_t)FRAME_CRC_SIZE
 #define CRC_INIT 0xFFFFu
 #define CRC_BIT_MASK 0x8000
 #define CRC_POLYNOM 0x1021
@@ -76,6 +78,35 @@ static uint16_t beam_compute_frame_crc(const uint8_t *data, size_t payload_len)
 }
 
 /**
+ * @brief Fill payload union from raw bytes according to msg_id.
+ * Known types are copied into .telemetry or .battery when length is sufficient; otherwise into .raw.
+ */
+static void beam_fill_payload(uint8_t msg_id, const uint8_t *payload_src, uint8_t len, beam_payload_t *payload)
+{
+    switch (msg_id) {
+    case MSG_ID_TELEMETRY:
+        if (len >= sizeof(beam_payload_telemetry_t)) {
+            memcpy(&payload->telemetry, payload_src, sizeof(beam_payload_telemetry_t));
+        }
+        else {
+            memcpy(payload->raw, payload_src, len);
+        }
+        break;
+    case MSG_ID_BATTERY:
+        if (len >= sizeof(beam_payload_battery_t)) {
+            memcpy(&payload->battery, payload_src, sizeof(beam_payload_battery_t));
+        }
+        else {
+            memcpy(payload->raw, payload_src, len);
+        }
+        break;
+    default:
+        memcpy(payload->raw, payload_src, len);
+        break;
+    }
+}
+
+/**
  * @brief Parse and validate a raw frame buffer into out.
  *
  * Caller must ensure data_len >= BEAM_FRAME_MIN_SIZE and non-NULL arguments.
@@ -91,8 +122,9 @@ static esp_err_t beam_parse_frame_into(const uint8_t *data, size_t data_len, bea
     uint8_t len = data[2];
     PARSER_RETURN_ON_FALSE(len <= MAX_PAYLOAD_SIZE, "payload length exceeds MAX_PAYLOAD_SIZE", ESP_ERR_INVALID_SIZE);
 
-    size_t frame_size = (size_t)FRAME_HEADER_SIZE + (size_t)len + FRAME_CRC_SIZE;
-    PARSER_RETURN_ON_FALSE(data_len >= frame_size, "buffer shorter than header + payload + CRC", ESP_ERR_INVALID_SIZE);
+    PARSER_RETURN_ON_FALSE(data_len >= FRAME_SIZE(len),
+                           "buffer shorter than header + payload + CRC",
+                           ESP_ERR_INVALID_SIZE);
 
     uint16_t expected_crc = beam_compute_frame_crc(data, len);
     uint16_t received_crc =
@@ -102,7 +134,9 @@ static esp_err_t beam_parse_frame_into(const uint8_t *data, size_t data_len, bea
     out->header.msg_id = data[0];
     out->header.seq = data[1];
     out->header.len = len;
-    memcpy(out->payload, data + FRAME_HEADER_SIZE, len);
+
+    beam_fill_payload(out->header.msg_id, data + FRAME_HEADER_SIZE, len, &out->payload);
+
     out->crc = received_crc;
 
     return ESP_OK;

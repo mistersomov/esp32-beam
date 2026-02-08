@@ -17,14 +17,16 @@
 #ifndef BEAM_FRAME_H
 #define BEAM_FRAME_H
 
+#include "payload_type.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define MAX_PAYLOAD_SIZE 255 ///< Maximum size of the data payload in bytes
-
+/**
+ * @brief BEAM frame header (3 bytes on wire: msg_id, seq, len).
+ */
 typedef struct beam_frame_header {
     uint8_t msg_id; ///< Unique identifier for the message type
     uint8_t seq;    ///< Packet sequence number for loss tracking
@@ -40,9 +42,9 @@ typedef struct beam_frame_header {
  * or interruptions)
  */
 typedef struct beam_frame {
-    beam_frame_header_t header;
-    uint8_t payload[MAX_PAYLOAD_SIZE]; ///< Raw data bytes
-    uint16_t crc;                      ///< CRC-16-CCITT checksum for error detection
+    beam_frame_header_t header; ///< Frame header (msg_id, seq, len)
+    beam_payload_t payload;     ///< Payload union; interpret by header.msg_id
+    uint16_t crc;               ///< CRC-16-CCITT checksum for error detection
 } beam_frame_t;
 
 #ifdef __cplusplus
