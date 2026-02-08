@@ -17,7 +17,7 @@
 #ifndef BEAM_FRAME_H
 #define BEAM_FRAME_H
 
-#include "stdint.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,7 +29,8 @@ extern "C" {
 /**
  * @brief Beam Protocol Frame Structure
  *
- * Represents the full packet as it is sent over the transport layer
+ * Represents the full packet as it is sent over the transport layer.
+ *
  * Its purpose is to extract a coherent, valid message from a continuous stream of bytes (which may contain interference
  * or interruptions)
  */
