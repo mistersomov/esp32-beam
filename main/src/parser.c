@@ -16,17 +16,16 @@
 
 #include "parser.h"
 #include "esp_check.h"
+#include "esp_crc.h"
 #include "payload_type.h"
-#include <string.h>
+#include <limits.h>
 
 #define FRAME_HEADER_SIZE 3u /**< Header bytes: msg_id + seq + len */
 #define FRAME_CRC_SIZE 2u    /**< CRC size in bytes */
 #define FRAME_SIZE(len)                                                                                                \
     ((size_t)FRAME_HEADER_SIZE + (size_t)(len) +                                                                       \
      (size_t)FRAME_CRC_SIZE) /**< Total frame size for given payload length */
-#define CRC_INIT 0xFFFFu     /**< Initial CRC-16-CCITT value */
-#define CRC_BIT_MASK 0x8000  /**< MSB mask for CRC computation */
-#define CRC_POLYNOM 0x1021   /**< CRC-16-CCITT polynomial */
+#define CRC_INIT UINT16_MAX  /**< Initial CRC-16-CCITT value (0xFFFF) */
 
 static const char *TAG = "[BEAM_parser]";
 
@@ -35,49 +34,6 @@ static const char *TAG = "[BEAM_parser]";
  * Pass the condition that must hold to continue (true = do not return).
  */
 #define PARSER_RETURN_ON_FALSE(condition, msg, ret_val) ESP_RETURN_ON_FALSE(condition, ret_val, TAG, "%s", msg)
-
-/**
- * @brief Update CRC-16-CCITT with one byte (MSB first, polynomial 0x1021).
- *
- * @param crc Current CRC (use CRC_INIT for the first byte).
- * @param data Next input byte.
- *
- * @return Updated 16-bit CRC.
- */
-static uint16_t compute_crc16_per_byte(uint16_t crc, uint8_t data)
-{
-    crc ^= (uint16_t)data << 8;
-    for (uint8_t i = 0; i < 8; i++) {
-        if (crc & CRC_BIT_MASK)
-            crc = (crc << 1) ^ CRC_POLYNOM;
-        else
-            crc <<= 1;
-    }
-
-    return crc;
-}
-
-/**
- * @brief Compute frame CRC over header (msg_id, seq, len) and payload.
- *
- * @param data Buffer starting with the 3-byte header; length at least FRAME_HEADER_SIZE + payload_len.
- * @param payload_len Number of payload bytes to include in CRC.
- *
- * @return CRC-16-CCITT value (same byte order as on wire: LSB first).
- */
-static uint16_t compute_frame_crc(const uint8_t *data, size_t payload_len)
-{
-    uint16_t crc = CRC_INIT;
-
-    crc = compute_crc16_per_byte(crc, data[0]);
-    crc = compute_crc16_per_byte(crc, data[1]);
-    crc = compute_crc16_per_byte(crc, data[2]);
-    for (size_t i = 0; i < payload_len; i++) {
-        crc = compute_crc16_per_byte(crc, data[FRAME_HEADER_SIZE + i]);
-    }
-
-    return crc;
-}
 
 /**
  * @brief Fill payload union from raw bytes according to msg_id.
@@ -142,7 +98,7 @@ static esp_err_t parse_into_frame(const uint8_t *data, size_t data_len, beam_fra
                            "buffer shorter than header + payload + CRC",
                            ESP_ERR_INVALID_SIZE);
 
-    uint16_t expected_crc = compute_frame_crc(data, len);
+    uint16_t expected_crc = esp_crc16_be(CRC_INIT, data, FRAME_HEADER_SIZE + len);
     uint16_t received_crc =
         (uint16_t)data[FRAME_HEADER_SIZE + len] | ((uint16_t)data[FRAME_HEADER_SIZE + len + 1] << 8);
     PARSER_RETURN_ON_FALSE(expected_crc == received_crc, "frame CRC mismatch", ESP_ERR_INVALID_CRC);
@@ -183,10 +139,10 @@ static esp_err_t serialize_frame(const beam_frame_t *frame, uint8_t *out_buffer,
 
     memcpy(out_buffer + FRAME_HEADER_SIZE, frame->payload.raw, frame->header.len);
 
-    uint16_t crc = compute_frame_crc(out_buffer, frame->header.len);
+    uint16_t crc = esp_crc16_be(CRC_INIT, out_buffer, FRAME_HEADER_SIZE + frame->header.len);
     size_t crc_offset = FRAME_HEADER_SIZE + frame->header.len;
-    out_buffer[crc_offset] = (uint8_t)(crc & 0xFF);
-    out_buffer[crc_offset + 1] = (uint8_t)((crc >> 8) & 0xFF);
+    out_buffer[crc_offset] = (uint8_t)(crc & 0xFF);            // LSB
+    out_buffer[crc_offset + 1] = (uint8_t)((crc >> 8) & 0xFF); // MSB
 
     if (out_size != NULL) {
         *out_size = required_size;
