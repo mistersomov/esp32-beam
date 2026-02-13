@@ -17,6 +17,7 @@
 #ifndef BEAM_FRAME_H
 #define BEAM_FRAME_H
 
+#include "message_common.h"
 #include "payload_type.h"
 #include <stdint.h>
 
@@ -24,13 +25,20 @@
 extern "C" {
 #endif
 
+/* Total frame size for given payload length */
+#define FRAME_SIZE(len) ((size_t)FRAME_HEADER_SIZE + (size_t)(len) + (size_t)FRAME_CRC_SIZE)
+#define FRAME_MIN_SIZE FRAME_SIZE(0u) ///< Minimum frame size in bytes (header 4 + payload 0 + CRC 2).
+#define FRAME_HEADER_SIZE 4u          ///< Header bytes: msg_id + flags + seq + len
+#define FRAME_CRC_SIZE 2u             ///< CRC size in bytes
+
 /**
- * @brief BEAM frame header (3 bytes on wire: msg_id, seq, len).
+ * @brief BEAM frame header (4 bytes on wire: msg_id, flags, seq, len).
  */
 typedef struct __attribute__((packed)) beam_frame_header {
-    uint8_t msg_id; ///< Unique identifier for the message type
-    uint8_t seq;    ///< Packet sequence number for loss tracking
-    uint8_t len;    ///< Length of the payload array (0 to MAX_PAYLOAD_SIZE)
+    beam_msg_id_t msg_id; ///< Unique identifier for the message type
+    beam_flags_t flags;   ///< Bit mask (priority, requires ACK, etc.)
+    uint8_t seq;          ///< Packet sequence number for loss tracking
+    uint8_t len;          ///< Length of the payload array (0 to MAX_PAYLOAD_SIZE)
 } beam_frame_header_t;
 
 /**

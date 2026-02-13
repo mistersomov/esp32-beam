@@ -23,10 +23,7 @@
 extern "C" {
 #endif
 
-#define MAX_PAYLOAD_SIZE 255 ///< Maximum size of the data payload in bytes
-
-#define MSG_ID_TELEMETRY 0x01 ///< Altitude, and orientation data
-#define MSG_ID_BATTERY 0x02   ///< Battery data
+#define MAX_PAYLOAD_SIZE 200 ///< Maximum size of the data payload in bytes
 
 /**
  * @brief Main telemetry structure (12 bytes: roll, pitch, yaw).

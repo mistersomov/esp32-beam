@@ -27,9 +27,6 @@
 extern "C" {
 #endif
 
-/** Minimum frame size in bytes (header 3 + payload 0 + CRC 2). */
-#define BEAM_FRAME_MIN_SIZE 5
-
 /**
  * @brief Parses a raw buffer into frame.
  *
@@ -42,7 +39,7 @@ extern "C" {
  *         ESP_ERR_INVALID_SIZE if data_len is too short or payload length is invalid.
  *         ESP_ERR_INVALID_CRC if the CRC does not match.
  *
- * @note Use BEAM_FRAME_MIN_SIZE for minimum buffer length.
+ * @note Use FRAME_MIN_SIZE for minimum buffer length.
  */
 esp_err_t beam_parse_into_frame(const uint8_t *data, size_t data_len, beam_frame_t *out_frame);
 

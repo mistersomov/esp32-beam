@@ -17,15 +17,11 @@
 #include "parser.h"
 #include "esp_check.h"
 #include "esp_crc.h"
+#include "message_common.h"
 #include "payload_type.h"
 #include <limits.h>
 
-#define FRAME_HEADER_SIZE 3u /**< Header bytes: msg_id + seq + len */
-#define FRAME_CRC_SIZE 2u    /**< CRC size in bytes */
-#define FRAME_SIZE(len)                                                                                                \
-    ((size_t)FRAME_HEADER_SIZE + (size_t)(len) +                                                                       \
-     (size_t)FRAME_CRC_SIZE) /**< Total frame size for given payload length */
-#define CRC_INIT UINT16_MAX  /**< Initial CRC-16-CCITT value (0xFFFF) */
+#define CRC_INIT UINT16_MAX /**< Initial CRC-16-CCITT value (0xFFFF) */
 
 static const char *TAG = "[BEAM_parser]";
 
@@ -76,7 +72,7 @@ static void fill_payload(uint8_t msg_id, const uint8_t *payload_src, uint8_t len
  * @brief Parse and validate a raw frame buffer into beam_frame_t structure.
  *
  * Validates frame length, payload size, and CRC. Fills header and payload fields.
- * Caller must ensure data_len >= BEAM_FRAME_MIN_SIZE and non-NULL arguments.
+ * Caller must ensure data_len >= FRAME_MIN_SIZE and non-NULL arguments.
  *
  * @param data Raw frame buffer starting with header.
  * @param data_len Length of data buffer.
@@ -92,7 +88,7 @@ static esp_err_t parse_into_frame(const uint8_t *data, size_t data_len, beam_fra
                            "buffer shorter than frame header (3 bytes)",
                            ESP_ERR_INVALID_SIZE);
 
-    uint8_t len = data[2];
+    uint8_t len = data[3];
     PARSER_RETURN_ON_FALSE(len <= MAX_PAYLOAD_SIZE, "payload length exceeds MAX_PAYLOAD_SIZE", ESP_ERR_INVALID_SIZE);
     PARSER_RETURN_ON_FALSE(data_len >= FRAME_SIZE(len),
                            "buffer shorter than header + payload + CRC",
@@ -104,7 +100,8 @@ static esp_err_t parse_into_frame(const uint8_t *data, size_t data_len, beam_fra
     PARSER_RETURN_ON_FALSE(expected_crc == received_crc, "frame CRC mismatch", ESP_ERR_INVALID_CRC);
 
     out->header.msg_id = data[0];
-    out->header.seq = data[1];
+    out->header.flags = data[1];
+    out->header.seq = data[2];
     out->header.len = len;
 
     fill_payload(out->header.msg_id, data + FRAME_HEADER_SIZE, len, &out->payload);
@@ -134,8 +131,9 @@ static esp_err_t serialize_frame(const beam_frame_t *frame, uint8_t *out_buffer,
     PARSER_RETURN_ON_FALSE(buffer_size >= required_size, "buffer_size too small for frame", ESP_ERR_INVALID_SIZE);
 
     out_buffer[0] = frame->header.msg_id;
-    out_buffer[1] = frame->header.seq;
-    out_buffer[2] = frame->header.len;
+    out_buffer[1] = frame->header.flags;
+    out_buffer[2] = frame->header.seq;
+    out_buffer[3] = frame->header.len;
 
     memcpy(out_buffer + FRAME_HEADER_SIZE, frame->payload.raw, frame->header.len);
 
@@ -155,9 +153,7 @@ esp_err_t beam_parse_into_frame(const uint8_t *data, size_t data_len, beam_frame
 {
     PARSER_RETURN_ON_FALSE(data != NULL, "data pointer is NULL", ESP_ERR_INVALID_ARG);
     PARSER_RETURN_ON_FALSE(out_frame != NULL, "out_frame pointer is NULL", ESP_ERR_INVALID_ARG);
-    PARSER_RETURN_ON_FALSE(data_len >= BEAM_FRAME_MIN_SIZE,
-                           "data_len less than BEAM_FRAME_MIN_SIZE (5)",
-                           ESP_ERR_INVALID_SIZE);
+    PARSER_RETURN_ON_FALSE(data_len >= FRAME_MIN_SIZE, "data_len less than FRAME_MIN_SIZE (5)", ESP_ERR_INVALID_SIZE);
 
     return parse_into_frame(data, data_len, out_frame);
 }
