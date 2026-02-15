@@ -32,10 +32,10 @@ typedef uint8_t beam_flags_t;
 #define MSG_FLAG_PRIORITY BEAM_BIT(0)
 #define MSG_FLAG_ACK_REQ BEAM_BIT(1)
 
-typedef uint8_t beam_msg_id_t;
-typedef enum beam_message_id {
-    MSG_ID_TELEMETRY, ///< Orientation data
-    MSG_ID_BATTERY,   ///< Battery data
-} beam_message_id_t;
+typedef uint8_t beam_msg_category_t;
+typedef enum beam_message_category {
+    MSG_CAT_TELEMETRY, ///< Orientation data
+    MSG_CAT_BATTERY,   ///< Battery data
+} beam_message_category_t;
 
 #endif /* BEAM_MESSAGE_COMMON_H */

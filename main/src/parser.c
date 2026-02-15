@@ -32,21 +32,21 @@ static const char *TAG = "[BEAM_parser]";
 #define PARSER_RETURN_ON_FALSE(condition, msg, ret_val) ESP_RETURN_ON_FALSE(condition, ret_val, TAG, "%s", msg)
 
 /**
- * @brief Fill payload union from raw bytes according to msg_id.
+ * @brief Fill payload union from raw bytes according to msg_category.
  *
- * For known message types (MSG_ID_TELEMETRY, MSG_ID_BATTERY), copies data into
+ * For known message types (MSG_CAT_TELEMETRY, MSG_CAT_BATTERY), copies data into
  * the typed union member if payload length is sufficient. Otherwise, or for unknown
  * types, copies into .raw array.
  *
- * @param msg_id Message type identifier.
+ * @param msg_category Message type identifier.
  * @param payload_src Source buffer with payload bytes.
  * @param len Number of payload bytes to copy.
  * @param payload Destination payload union to fill.
  */
-static void fill_payload(uint8_t msg_id, const uint8_t *payload_src, uint8_t len, beam_payload_t *payload)
+static void fill_payload(uint8_t msg_category, const uint8_t *payload_src, uint8_t len, beam_payload_t *payload)
 {
-    switch (msg_id) {
-    case MSG_ID_TELEMETRY:
+    switch (msg_category) {
+    case MSG_CAT_TELEMETRY:
         if (len >= sizeof(beam_payload_telemetry_t)) {
             memcpy(&payload->telemetry, payload_src, sizeof(beam_payload_telemetry_t));
         }
@@ -54,7 +54,7 @@ static void fill_payload(uint8_t msg_id, const uint8_t *payload_src, uint8_t len
             memcpy(payload->raw, payload_src, len);
         }
         break;
-    case MSG_ID_BATTERY:
+    case MSG_CAT_BATTERY:
         if (len >= sizeof(beam_payload_battery_t)) {
             memcpy(&payload->battery, payload_src, sizeof(beam_payload_battery_t));
         }
@@ -85,7 +85,7 @@ static void fill_payload(uint8_t msg_id, const uint8_t *payload_src, uint8_t len
 static esp_err_t parse_into_frame(const uint8_t *data, size_t data_len, beam_frame_t *out)
 {
     PARSER_RETURN_ON_FALSE(data_len >= FRAME_HEADER_SIZE,
-                           "buffer shorter than frame header (3 bytes)",
+                           "buffer shorter than frame header (4 bytes)",
                            ESP_ERR_INVALID_SIZE);
 
     uint8_t len = data[3];
@@ -99,12 +99,12 @@ static esp_err_t parse_into_frame(const uint8_t *data, size_t data_len, beam_fra
         (uint16_t)data[FRAME_HEADER_SIZE + len] | ((uint16_t)data[FRAME_HEADER_SIZE + len + 1] << 8);
     PARSER_RETURN_ON_FALSE(expected_crc == received_crc, "frame CRC mismatch", ESP_ERR_INVALID_CRC);
 
-    out->header.msg_id = data[0];
+    out->header.msg_category = data[0];
     out->header.flags = data[1];
     out->header.seq = data[2];
     out->header.len = len;
 
-    fill_payload(out->header.msg_id, data + FRAME_HEADER_SIZE, len, &out->payload);
+    fill_payload(out->header.msg_category, data + FRAME_HEADER_SIZE, len, &out->payload);
 
     out->crc = received_crc;
 
@@ -130,7 +130,7 @@ static esp_err_t serialize_frame(const beam_frame_t *frame, uint8_t *out_buffer,
     size_t required_size = FRAME_SIZE(frame->header.len);
     PARSER_RETURN_ON_FALSE(buffer_size >= required_size, "buffer_size too small for frame", ESP_ERR_INVALID_SIZE);
 
-    out_buffer[0] = frame->header.msg_id;
+    out_buffer[0] = frame->header.msg_category;
     out_buffer[1] = frame->header.flags;
     out_buffer[2] = frame->header.seq;
     out_buffer[3] = frame->header.len;
@@ -153,7 +153,7 @@ esp_err_t beam_parse_into_frame(const uint8_t *data, size_t data_len, beam_frame
 {
     PARSER_RETURN_ON_FALSE(data != NULL, "data pointer is NULL", ESP_ERR_INVALID_ARG);
     PARSER_RETURN_ON_FALSE(out_frame != NULL, "out_frame pointer is NULL", ESP_ERR_INVALID_ARG);
-    PARSER_RETURN_ON_FALSE(data_len >= FRAME_MIN_SIZE, "data_len less than FRAME_MIN_SIZE (5)", ESP_ERR_INVALID_SIZE);
+    PARSER_RETURN_ON_FALSE(data_len >= FRAME_MIN_SIZE, "data_len less than FRAME_MIN_SIZE", ESP_ERR_INVALID_SIZE);
 
     return parse_into_frame(data, data_len, out_frame);
 }

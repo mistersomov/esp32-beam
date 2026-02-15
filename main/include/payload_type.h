@@ -44,11 +44,11 @@ typedef struct __attribute__((packed)) beam_payload_battery {
 } beam_payload_battery_t;
 
 /**
- * @brief Frame payload union: use .telemetry, .battery or .raw[] according to header.msg_id (MSG_ID_*).
+ * @brief Frame payload union: use .telemetry, .battery or .raw[] according to header.msg_category (MSG_ID_*).
  */
 typedef union beam_payload {
-    beam_payload_telemetry_t telemetry; ///< When msg_id == MSG_ID_TELEMETRY
-    beam_payload_battery_t battery;     ///< When msg_id == MSG_ID_BATTERY
+    beam_payload_telemetry_t telemetry; ///< When msg_category == MSG_CAT_TELEMETRY
+    beam_payload_battery_t battery;     ///< When msg_category == MSG_CAT_BATTERY
     uint8_t raw[MAX_PAYLOAD_SIZE];      ///< Raw bytes; or use typed member above
 } beam_payload_t;
 
