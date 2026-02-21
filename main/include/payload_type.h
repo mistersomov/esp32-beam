@@ -38,9 +38,9 @@ typedef struct __attribute__((packed)) beam_payload_telemetry {
  * @brief Battery status structure (5 bytes)
  */
 typedef struct __attribute__((packed)) beam_payload_battery {
-    uint16_t voltage_mv; ///< mV
-    uint16_t current_ma; ///< mA
-    uint8_t percent;     ///< %
+    uint16_t voltage; ///< mV
+    uint16_t current; ///< mA
+    uint8_t percent;  ///< %
 } beam_payload_battery_t;
 
 /**
