@@ -14,11 +14,11 @@
  limitations under the License.
  */
 
-#include "parser.h"
+#include "beam_message_common.h"
+#include "beam_parser.h"
+#include "beam_payload_type.h"
 #include "esp_check.h"
 #include "esp_crc.h"
-#include "message_common.h"
-#include "payload_type.h"
 #include <limits.h>
 
 #define CRC_INIT UINT16_MAX /**< Initial CRC-16-CCITT value (0xFFFF) */

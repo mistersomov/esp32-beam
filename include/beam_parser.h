@@ -17,8 +17,8 @@
 #ifndef BEAM_PARSER_H
 #define BEAM_PARSER_H
 
+#include "beam_frame.h"
 #include "esp_err.h"
-#include "frame.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
