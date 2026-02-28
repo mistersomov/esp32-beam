@@ -17,8 +17,8 @@
 #ifndef BEAM_FRAME_H
 #define BEAM_FRAME_H
 
-#include "message_common.h"
-#include "payload_type.h"
+#include "beam_message_common.h"
+#include "beam_payload_type.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
